@@ -89,6 +89,30 @@ const ProfileScreen: React.FC = () => {
 
         {/* Info Items */}
         <View style={styles.infoSection}>
+          <TouchableOpacity onPress={() => router.push('/orders')}>
+            <BlurView intensity={15} tint="light" style={styles.infoItem}>
+              <View style={styles.infoLeft}>
+                <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(107, 207, 127, 0.1)' }]}>
+                  <Ionicons name="receipt-outline" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.infoLabel}>My Orders</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+            </BlurView>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push('/cart')}>
+            <BlurView intensity={15} tint="light" style={styles.infoItem}>
+              <View style={styles.infoLeft}>
+                <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(255, 183, 77, 0.1)' }]}>
+                  <Ionicons name="cart-outline" size={20} color="#FFB74D" />
+                </View>
+                <Text style={styles.infoLabel}>My Cart</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+            </BlurView>
+          </TouchableOpacity>
+
           <BlurView intensity={15} tint="light" style={styles.infoItem}>
             <View style={styles.infoLeft}>
               <View style={styles.infoIconContainer}>

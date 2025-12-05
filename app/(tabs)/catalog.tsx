@@ -1,13 +1,14 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Dimensions, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { RootState } from '../../src/store';
-import { setProducts, setLoading, setSelectedCategory } from '../../src/store/slices/productSlice';
+import { setProducts, setLoading, setSelectedCategory, setSearchQuery, clearSearch } from '../../src/store/slices/productSlice';
 import { getProducts, getProductsByCategory } from '../../src/services/productService';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import ProductCard from '../../src/components/ProductCard';
@@ -18,7 +19,9 @@ const { width } = Dimensions.get('window');
 const CatalogScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const { category } = useLocalSearchParams();
-  const { products, loading, selectedCategory } = useSelector((state: RootState) => state.products);
+  const { products, filteredProducts, loading, selectedCategory, searchQuery } = useSelector((state: RootState) => state.products);
+  const cartItems = useSelector((state: RootState) => state.cart.items);
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const dispatch = useDispatch();
   const { t } = useTranslation();
 
@@ -57,11 +60,20 @@ const CatalogScreen: React.FC = () => {
 
   const handleCategoryPress = (categoryKey: string | null) => {
     dispatch(setSelectedCategory(categoryKey));
+    dispatch(clearSearch()); // Clear search when changing category
     if (categoryKey) {
       router.setParams({ category: categoryKey });
     } else {
       router.setParams({ category: undefined });
     }
+  };
+
+  const handleSearchChange = (text: string) => {
+    dispatch(setSearchQuery(text));
+  };
+
+  const handleClearSearch = () => {
+    dispatch(clearSearch());
   };
 
   const navigateToProduct = (productId: string) => {
@@ -88,19 +100,33 @@ const CatalogScreen: React.FC = () => {
               <Text style={styles.headerTitle}>🛒 Shop</Text>
               <Text style={styles.headerSubtitle}>Premium Quality Products</Text>
             </View>
-            <TouchableOpacity style={styles.cartButton}>
+            <TouchableOpacity style={styles.cartButton} onPress={() => router.push('/cart')}>
               <BlurView intensity={20} style={styles.cartBlur}>
-                <IconSymbol name="cart.fill" size={22} color="#fff" />
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>3</Text>
-                </View>
+                <Ionicons name="cart-outline" size={22} color="#fff" />
+                {cartCount > 0 && (
+                  <View style={styles.cartBadge}>
+                    <Text style={styles.cartBadgeText}>{cartCount > 9 ? '9+' : cartCount}</Text>
+                  </View>
+                )}
               </BlurView>
             </TouchableOpacity>
           </View>
           
           <BlurView intensity={15} tint="light" style={styles.searchContainer}>
             <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
-            <Text style={styles.searchPlaceholder}>Search products...</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
+                <IconSymbol name="xmark.circle.fill" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
           </BlurView>
         </LinearGradient>
 
@@ -146,7 +172,7 @@ const CatalogScreen: React.FC = () => {
 
       {/* Scrollable Product List */}
       <FlatList
-        data={products}
+        data={filteredProducts}
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
         numColumns={2}
@@ -159,6 +185,14 @@ const CatalogScreen: React.FC = () => {
         alwaysBounceVertical={true}
         decelerationRate="normal"
         scrollEventThrottle={16}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <IconSymbol name="magnifyingglass" size={48} color={colors.textSecondary} />
+            <Text style={styles.emptyText}>
+              {searchQuery ? `No products found for "${searchQuery}"` : 'No products available'}
+            </Text>
+          </View>
+        }
       />
     </View>
   );
@@ -238,11 +272,26 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     marginLeft: 10,
     fontSize: 16,
-    color: colors.textSecondary,
+    color: colors.text,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  emptyContainer: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginTop: 16,
+    textAlign: 'center',
   },
   categoriesSection: {
     paddingTop: 16,

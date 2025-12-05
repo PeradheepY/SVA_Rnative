@@ -6,6 +6,11 @@ interface User {
   name: string;
   phoneNumber: string;
   role: 'farmer' | 'retailer';
+  // Retailer specific fields
+  gstin?: string;
+  shopName?: string;
+  shopAddress?: string;
+  isVerified?: boolean;
 }
 
 interface AuthState {

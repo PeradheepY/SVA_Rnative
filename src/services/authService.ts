@@ -6,16 +6,23 @@ import {
   signInWithCredential,
   signOut
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { doc, setDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTH_STORAGE_KEY = '@sva_auth_state';
 const ROLE_STORAGE_KEY = '@sva_user_role';
+const USERS_COLLECTION = 'users';
 
 export interface AuthUser {
   uid: string;
   phoneNumber: string;
   role: 'farmer' | 'retailer';
+  name?: string;
+  gstin?: string;
+  shopName?: string;
+  shopAddress?: string;
+  isVerified?: boolean;
 }
 
 // For development/testing - simulate OTP verification
@@ -82,12 +89,14 @@ export const sendOTP = async (phoneNumber: string): Promise<string> => {
  * @param verificationId - Verification ID from sendOTP
  * @param otp - OTP code entered by user
  * @param role - User role (farmer or retailer)
+ * @param retailerData - Optional retailer data (gstin, shopName)
  * @returns User data
  */
 export const verifyOTP = async (
   verificationId: string,
   otp: string,
-  role: 'farmer' | 'retailer'
+  role: 'farmer' | 'retailer',
+  retailerData?: { gstin?: string; shopName?: string }
 ): Promise<AuthUser> => {
   try {
     // Development mode - mock verification
@@ -103,7 +112,15 @@ export const verifyOTP = async (
         uid: `mock_user_${Date.now()}`,
         phoneNumber: '+919876543210',
         role,
+        ...(role === 'retailer' && retailerData && {
+          gstin: retailerData.gstin,
+          shopName: retailerData.shopName,
+          isVerified: false,
+        }),
       };
+
+      // Save user to Firestore
+      await saveUserToFirestore(mockUser);
 
       // Save to AsyncStorage
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockUser));
@@ -120,7 +137,15 @@ export const verifyOTP = async (
       uid: userCredential.user.uid,
       phoneNumber: userCredential.user.phoneNumber || '',
       role,
+      ...(role === 'retailer' && retailerData && {
+        gstin: retailerData.gstin,
+        shopName: retailerData.shopName,
+        isVerified: false,
+      }),
     };
+
+    // Save user to Firestore
+    await saveUserToFirestore(user);
 
     // Save role to AsyncStorage
     await AsyncStorage.setItem(ROLE_STORAGE_KEY, role);
@@ -191,4 +216,78 @@ export const formatPhoneNumber = (phone: string, countryCode: string = '+91'): s
 export const validatePhoneNumber = (phone: string): boolean => {
   const cleanPhone = phone.replace(/\D/g, '');
   return cleanPhone.length === 10;
+};
+
+/**
+ * Save user data to Firestore
+ */
+export const saveUserToFirestore = async (user: AuthUser): Promise<void> => {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, user.uid);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      // Update existing user
+      await updateDoc(userRef, {
+        lastLogin: Timestamp.now(),
+        ...(user.gstin && { gstin: user.gstin }),
+        ...(user.shopName && { shopName: user.shopName }),
+      });
+    } else {
+      // Create new user
+      await setDoc(userRef, {
+        uid: user.uid,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        name: user.role === 'farmer' ? 'Farmer User' : (user.shopName || 'Retailer User'),
+        ...(user.role === 'retailer' && {
+          gstin: user.gstin || '',
+          shopName: user.shopName || '',
+          shopAddress: '',
+          isVerified: false,
+        }),
+        createdAt: Timestamp.now(),
+        lastLogin: Timestamp.now(),
+      });
+    }
+    console.log('User saved to Firestore');
+  } catch (error) {
+    console.error('Error saving user to Firestore:', error);
+    // Don't throw error - user can still use the app
+  }
+};
+
+/**
+ * Get user data from Firestore
+ */
+export const getUserFromFirestore = async (uid: string): Promise<AuthUser | null> => {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, uid);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data() as AuthUser;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user from Firestore:', error);
+    return null;
+  }
+};
+
+/**
+ * Update retailer verification status (for admin use)
+ */
+export const updateRetailerVerification = async (uid: string, isVerified: boolean): Promise<void> => {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, uid);
+    await updateDoc(userRef, {
+      isVerified,
+      verifiedAt: isVerified ? Timestamp.now() : null,
+    });
+    console.log('Retailer verification updated');
+  } catch (error) {
+    console.error('Error updating retailer verification:', error);
+    throw error;
+  }
 };

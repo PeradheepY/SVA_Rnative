@@ -101,6 +101,41 @@ const MAPPING = {
   "bookmark.fill": "bookmark",
   "bookmark": "bookmark-border",
 
+  // Charts & Analytics
+  "chart.bar.fill": "bar-chart",
+  "chart.bar": "bar-chart",
+  "chart.line.uptrend.xyaxis": "trending-up",
+  "chart.pie.fill": "pie-chart",
+
+  // Products & Inventory
+  "cube.box.fill": "inventory-2",
+  "cube.box": "inventory",
+  "cube.fill": "view-in-ar",
+  "shippingbox.fill": "local-shipping",
+  "shippingbox": "local-shipping",
+
+  // Lists & Clipboard
+  "list.clipboard.fill": "assignment",
+  "list.clipboard": "assignment",
+  "list.bullet": "list",
+  "list.bullet.rectangle": "list-alt",
+
+  // Documents
+  "doc.plaintext.fill": "article",
+  "doc.plaintext": "article",
+
+  // Security & Verification
+  "checkmark.seal.fill": "verified",
+  "checkmark.seal": "verified",
+  "shield.fill": "security",
+  "shield": "security",
+
+  // Misc
+  "xmark.circle.fill": "cancel",
+  "xmark.circle": "cancel",
+  "arrow.up.right": "north-east",
+  "rectangle.portrait.and.arrow.right": "logout",
+
   // Technology & Code
   "chevron.left.forwardslash.chevron.right": "code",
   "qrcode.viewfinder": "qr-code",

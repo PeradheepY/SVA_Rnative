@@ -1,5 +1,7 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -21,5 +23,11 @@ if (getApps().length === 0) {
 // Initialize Auth
 const auth: Auth = getAuth(app);
 
-export { auth };
+// Initialize Firestore for products database
+const db: Firestore = getFirestore(app);
+
+// Initialize Storage for product images
+const storage: FirebaseStorage = getStorage(app);
+
+export { auth, db, storage };
 export default app;

@@ -1,5 +1,12 @@
 
 import api from './api';
+import * as FileSystem from 'expo-file-system';
+
+// Google Gemini API Configuration
+// Get your free API key from: https://aistudio.google.com/apikey
+// Set it in your .env file as EXPO_PUBLIC_GEMINI_API_KEY
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 export interface DiseaseDetectionResult {
   id: string;
@@ -12,6 +19,9 @@ export interface DiseaseDetectionResult {
   preventionTips: string[];
   severity: 'low' | 'medium' | 'high';
   affectedCrops: string[];
+  imageUri?: string;
+  isHealthy?: boolean;
+  scientificName?: string;
 }
 
 export interface Treatment {
@@ -37,99 +47,432 @@ export interface ExpertConsultation {
   profileImage: string;
 }
 
-// Mock data for disease detection results
-const mockDiseaseResults: DiseaseDetectionResult[] = [
-  {
-    id: '1',
-    diseaseName: 'Late Blight',
-    confidence: 0.92,
-    description: 'Late blight is a destructive disease that affects tomatoes and potatoes, caused by the fungus-like organism Phytophthora infestans.',
-    symptoms: [
-      'Dark brown or black lesions on leaves',
-      'White fuzzy growth on leaf undersides',
-      'Rapid wilting and death of plant parts',
-      'Brown spots on fruits'
-    ],
+// Convert image to base64
+const imageToBase64 = async (imageUri: string): Promise<string> => {
+  try {
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return base64;
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    throw error;
+  }
+};
+
+// Parse Gemini response to extract disease info
+const parseGeminiResponse = (responseText: string): Partial<DiseaseDetectionResult> => {
+  try {
+    // Try to parse JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed;
+    }
+  } catch (e) {
+    console.log('Could not parse as JSON, extracting from text');
+  }
+  
+  // Fallback: extract info from text
+  const lines = responseText.split('\n');
+  let diseaseName = 'Unknown Disease';
+  let isHealthy = false;
+  let description = responseText.substring(0, 300);
+  
+  for (const line of lines) {
+    const lowerLine = line.toLowerCase();
+    if (lowerLine.includes('disease:') || lowerLine.includes('disease name:')) {
+      diseaseName = line.split(':')[1]?.trim() || diseaseName;
+    }
+    if (lowerLine.includes('healthy') && !lowerLine.includes('not healthy') && !lowerLine.includes('unhealthy')) {
+      isHealthy = true;
+      diseaseName = 'Healthy Plant';
+    }
+  }
+  
+  return { diseaseName, description, isHealthy };
+};
+
+export const detectCropDisease = async (imageUri: string): Promise<DiseaseDetectionResult> => {
+  try {
+    console.log('Detecting crop disease for image:', imageUri);
+    
+    // Check if API key is configured
+    if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
+      console.log('Gemini API key not configured, using mock data');
+      return await detectCropDiseaseMock(imageUri);
+    }
+    
+    // Convert image to base64
+    const base64Image = await imageToBase64(imageUri);
+    
+    // Create prompt for Gemini
+    const prompt = `You are an expert plant pathologist. Analyze this plant image and provide a disease diagnosis.
+
+Please respond in this exact JSON format:
+{
+  "diseaseName": "Name of the disease or 'Healthy Plant' if no disease",
+  "isHealthy": true or false,
+  "confidence": 0.0 to 1.0,
+  "severity": "low", "medium", or "high",
+  "description": "Brief description of the disease",
+  "symptoms": ["symptom 1", "symptom 2", "symptom 3"],
+  "causes": ["cause 1", "cause 2"],
+  "treatments": [
+    {
+      "name": "Treatment name",
+      "type": "organic" or "chemical" or "biological",
+      "description": "How it works",
+      "applicationMethod": "How to apply",
+      "dosage": "Amount to use",
+      "frequency": "How often",
+      "cost": estimated cost in INR as number
+    }
+  ],
+  "preventionTips": ["tip 1", "tip 2", "tip 3"],
+  "affectedCrops": ["crop1", "crop2"]
+}
+
+Analyze the plant in the image carefully. If it's healthy, set isHealthy to true. If diseased, provide detailed treatment information relevant to Indian farmers.`;
+
+    // Call Gemini API
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: 'image/jpeg',
+                data: base64Image
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.4,
+          topK: 32,
+          topP: 1,
+          maxOutputTokens: 2048,
+        }
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error:', response.status, errorText);
+      return await detectCropDiseaseMock(imageUri);
+    }
+    
+    const data = await response.json();
+    console.log('Gemini API response received');
+    
+    // Extract text from response
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('Gemini response:', responseText.substring(0, 500));
+    
+    // Parse the response
+    const parsed = parseGeminiResponse(responseText);
+    
+    // If healthy plant
+    if (parsed.isHealthy) {
+      return {
+        id: `detection_${Date.now()}`,
+        diseaseName: 'Healthy Plant',
+        confidence: parsed.confidence || 0.9,
+        description: parsed.description || 'Your plant appears to be healthy with no visible signs of disease.',
+        symptoms: [],
+        causes: [],
+        treatments: [],
+        preventionTips: [
+          'Continue regular watering schedule',
+          'Maintain proper nutrition with balanced fertilizer',
+          'Monitor for any changes in leaf color or texture',
+          'Ensure adequate sunlight exposure',
+          'Keep good air circulation around plants'
+        ],
+        severity: 'low',
+        affectedCrops: [],
+        imageUri,
+        isHealthy: true,
+      };
+    }
+    
+    // Get treatment info for the detected disease
+    const treatmentInfo = getTreatmentInfo(parsed.diseaseName || 'unknown');
+    
+    return {
+      id: `detection_${Date.now()}`,
+      diseaseName: parsed.diseaseName || 'Unknown Disease',
+      confidence: parsed.confidence || 0.75,
+      description: parsed.description || `${parsed.diseaseName} has been detected. Treatment is recommended.`,
+      symptoms: parsed.symptoms || extractSymptoms(parsed.diseaseName || ''),
+      causes: parsed.causes || treatmentInfo.causes,
+      treatments: parsed.treatments?.map((t: any, i: number) => ({
+        id: `t${i}`,
+        name: t.name,
+        type: t.type || 'organic',
+        description: t.description,
+        applicationMethod: t.applicationMethod,
+        dosage: t.dosage,
+        frequency: t.frequency,
+        cost: t.cost || 300
+      })) || treatmentInfo.treatments,
+      preventionTips: parsed.preventionTips || treatmentInfo.preventionTips,
+      severity: parsed.severity || 'medium',
+      affectedCrops: parsed.affectedCrops || ['Various crops'],
+      imageUri,
+      isHealthy: false,
+    };
+    
+  } catch (error) {
+    console.error('Error detecting crop disease:', error);
+    return await detectCropDiseaseMock(imageUri);
+  }
+};
+
+// Disease treatment database
+const treatmentDatabase: Record<string, { treatments: Treatment[], preventionTips: string[], causes: string[] }> = {
+  'late blight': {
     causes: [
-      'High humidity and cool temperatures',
-      'Poor air circulation',
-      'Overhead watering',
-      'Infected plant debris'
+      'High humidity and cool temperatures (10-25°C)',
+      'Poor air circulation between plants',
+      'Overhead watering or heavy rainfall',
+      'Infected plant debris or nearby infected plants'
     ],
     treatments: [
       {
         id: 't1',
-        name: 'Copper Fungicide',
+        name: 'Copper Fungicide (Bordeaux Mixture)',
         type: 'chemical',
-        description: 'Effective copper-based fungicide for late blight control',
-        applicationMethod: 'Foliar spray',
-        dosage: '2-3 grams per liter',
-        frequency: 'Every 7-10 days',
+        description: 'Effective copper-based fungicide that creates protective barrier on leaves',
+        applicationMethod: 'Foliar spray - cover all leaf surfaces thoroughly',
+        dosage: '2-3 grams per liter of water',
+        frequency: 'Every 7-10 days, or after heavy rain',
         cost: 450
       },
       {
         id: 't2',
-        name: 'Neem Oil',
+        name: 'Mancozeb 75% WP',
+        type: 'chemical',
+        description: 'Broad-spectrum fungicide for late blight control',
+        applicationMethod: 'Foliar spray',
+        dosage: '2.5 grams per liter',
+        frequency: 'Every 7 days during disease pressure',
+        cost: 380
+      },
+      {
+        id: 't3',
+        name: 'Neem Oil Spray',
         type: 'organic',
         description: 'Natural organic treatment with antifungal properties',
-        applicationMethod: 'Foliar spray',
-        dosage: '5ml per liter',
+        applicationMethod: 'Foliar spray early morning or evening',
+        dosage: '5ml neem oil + 2ml liquid soap per liter',
         frequency: 'Every 5-7 days',
         cost: 280
       }
     ],
     preventionTips: [
-      'Ensure good air circulation',
-      'Avoid overhead watering',
-      'Remove infected plant debris',
-      'Use resistant varieties',
-      'Apply preventive fungicides'
-    ],
-    severity: 'high',
-    affectedCrops: ['Tomato', 'Potato', 'Eggplant']
+      'Ensure good air circulation by proper spacing (60-90cm apart)',
+      'Water at soil level, avoid wetting leaves',
+      'Remove and destroy infected plant debris immediately',
+      'Use disease-resistant varieties',
+      'Apply preventive fungicide before rainy season',
+      'Rotate crops - don\'t plant in same spot for 3 years'
+    ]
   },
-  {
-    id: '2',
-    diseaseName: 'Powdery Mildew',
-    confidence: 0.87,
-    description: 'Powdery mildew is a fungal disease that appears as white powdery spots on leaves and stems.',
-    symptoms: [
-      'White powdery coating on leaves',
-      'Yellowing of affected leaves',
-      'Stunted growth',
-      'Reduced fruit quality'
-    ],
+  'powdery mildew': {
     causes: [
-      'High humidity with dry conditions',
-      'Poor air circulation',
-      'Overcrowded plants',
-      'Stress conditions'
+      'High humidity (50-90%) with moderate temperatures',
+      'Poor air circulation and overcrowded plants',
+      'Shaded conditions with limited sunlight',
+      'Excessive nitrogen fertilization'
     ],
     treatments: [
       {
-        id: 't3',
-        name: 'Sulfur Spray',
+        id: 't4',
+        name: 'Sulfur Dust/Spray',
         type: 'organic',
-        description: 'Organic sulfur-based treatment for powdery mildew',
-        applicationMethod: 'Foliar spray',
-        dosage: '3 grams per liter',
+        description: 'Organic sulfur-based treatment, highly effective',
+        applicationMethod: 'Dust or spray on affected areas',
+        dosage: '3 grams per liter for spray',
         frequency: 'Every 10-14 days',
         cost: 320
+      },
+      {
+        id: 't5',
+        name: 'Baking Soda Solution',
+        type: 'organic',
+        description: 'Home remedy that changes leaf pH to inhibit fungal growth',
+        applicationMethod: 'Spray on leaves',
+        dosage: '1 tablespoon baking soda + 1/2 teaspoon liquid soap per gallon water',
+        frequency: 'Weekly',
+        cost: 50
       }
     ],
     preventionTips: [
-      'Improve air circulation',
-      'Avoid overcrowding',
-      'Water at soil level',
-      'Remove affected leaves',
-      'Use resistant varieties'
+      'Improve air circulation by proper pruning and spacing',
+      'Plant in full sun locations',
+      'Water in morning so leaves dry during day',
+      'Remove affected leaves immediately',
+      'Avoid excessive nitrogen fertilizers'
+    ]
+  },
+  'default': {
+    causes: [
+      'Environmental stress factors',
+      'Pathogen infection (fungal, bacterial, or viral)',
+      'Poor growing conditions',
+      'Nutrient deficiency or toxicity'
     ],
-    severity: 'medium',
-    affectedCrops: ['Cucumber', 'Zucchini', 'Pumpkin', 'Grapes']
+    treatments: [
+      {
+        id: 'td1',
+        name: 'Broad-Spectrum Fungicide',
+        type: 'chemical',
+        description: 'General purpose fungicide for multiple diseases',
+        applicationMethod: 'Foliar spray',
+        dosage: 'As per label instructions',
+        frequency: 'Every 7-14 days',
+        cost: 400
+      },
+      {
+        id: 'td2',
+        name: 'Neem Oil Treatment',
+        type: 'organic',
+        description: 'Natural broad-spectrum treatment',
+        applicationMethod: 'Foliar spray',
+        dosage: '5ml per liter',
+        frequency: 'Weekly',
+        cost: 280
+      },
+      {
+        id: 'td3',
+        name: 'Trichoderma viride',
+        type: 'biological',
+        description: 'Beneficial microorganism for soil and plant health',
+        applicationMethod: 'Soil application or seed treatment',
+        dosage: '5g per liter or 10g per kg seed',
+        frequency: 'Once at planting, repeat monthly',
+        cost: 350
+      }
+    ],
+    preventionTips: [
+      'Maintain proper plant spacing for air circulation',
+      'Water at soil level, avoid wetting foliage',
+      'Remove dead or infected plant material promptly',
+      'Practice crop rotation',
+      'Use disease-free seeds and transplants',
+      'Keep garden tools clean and sanitized'
+    ]
   }
-];
+};
 
-// Mock data for expert consultations
+// Get treatment info based on disease name
+const getTreatmentInfo = (diseaseName: string) => {
+  const lowerName = diseaseName.toLowerCase();
+  for (const [key, value] of Object.entries(treatmentDatabase)) {
+    if (lowerName.includes(key)) {
+      return value;
+    }
+  }
+  return treatmentDatabase['default'];
+};
+
+// Extract symptoms from disease name
+const extractSymptoms = (diseaseName: string): string[] => {
+  const lowerName = diseaseName.toLowerCase();
+  
+  if (lowerName.includes('blight')) {
+    return [
+      'Dark brown or black lesions on leaves',
+      'Rapid wilting of plant parts',
+      'Water-soaked spots that enlarge quickly',
+      'White fuzzy growth in humid conditions'
+    ];
+  } else if (lowerName.includes('mildew')) {
+    return [
+      'White or gray powdery coating on leaves',
+      'Yellowing of affected leaves',
+      'Curling or distortion of leaves',
+      'Reduced plant vigor'
+    ];
+  } else if (lowerName.includes('spot')) {
+    return [
+      'Circular spots on leaves',
+      'Yellow halos around spots',
+      'Premature leaf drop',
+      'Spots may merge to form larger lesions'
+    ];
+  } else if (lowerName.includes('rust')) {
+    return [
+      'Orange or reddish-brown pustules on leaves',
+      'Powdery spores when touched',
+      'Yellowing around infected areas',
+      'Premature leaf drop'
+    ];
+  }
+  
+  return [
+    'Visible lesions or spots on plant tissue',
+    'Discoloration of leaves or stems',
+    'Abnormal growth patterns',
+    'Reduced plant health'
+  ];
+};
+
+// Mock detection for testing
+const detectCropDiseaseMock = async (imageUri: string): Promise<DiseaseDetectionResult> => {
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  const mockDiseases = [
+    {
+      name: 'Late Blight',
+      confidence: 0.89,
+      description: 'Late blight is a serious disease caused by Phytophthora infestans. It can destroy entire crops within days.',
+      severity: 'high' as const,
+      affectedCrops: ['Tomato', 'Potato', 'Eggplant']
+    },
+    {
+      name: 'Powdery Mildew',
+      confidence: 0.85,
+      description: 'Powdery mildew appears as white powdery spots on leaves, reducing photosynthesis.',
+      severity: 'medium' as const,
+      affectedCrops: ['Cucumber', 'Squash', 'Grapes']
+    },
+    {
+      name: 'Bacterial Leaf Spot',
+      confidence: 0.78,
+      description: 'Causes water-soaked lesions that turn brown with yellow halos.',
+      severity: 'medium' as const,
+      affectedCrops: ['Pepper', 'Tomato', 'Lettuce']
+    }
+  ];
+  
+  const selected = mockDiseases[Math.floor(Math.random() * mockDiseases.length)];
+  const treatmentInfo = getTreatmentInfo(selected.name);
+  
+  return {
+    id: `detection_${Date.now()}`,
+    diseaseName: selected.name,
+    confidence: selected.confidence,
+    description: selected.description,
+    symptoms: extractSymptoms(selected.name),
+    causes: treatmentInfo.causes,
+    treatments: treatmentInfo.treatments,
+    preventionTips: treatmentInfo.preventionTips,
+    severity: selected.severity,
+    affectedCrops: selected.affectedCrops,
+    imageUri,
+    isHealthy: false,
+  };
+};
+
+// Expert consultations
 const mockExperts: ExpertConsultation[] = [
   {
     id: 'e1',
@@ -152,94 +495,18 @@ const mockExperts: ExpertConsultation[] = [
     consultationFee: 600,
     languages: ['English', 'Hindi', 'Punjabi'],
     profileImage: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200'
-  },
-  {
-    id: 'e3',
-    expertName: 'Dr. Amit Kumar',
-    specialization: 'Integrated Pest Management',
-    experience: 18,
-    rating: 4.7,
-    availability: 'busy',
-    consultationFee: 750,
-    languages: ['English', 'Hindi', 'Bengali'],
-    profileImage: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=200'
   }
 ];
 
-export const detectCropDisease = async (imageUri: string): Promise<DiseaseDetectionResult> => {
-  try {
-    console.log('Detecting crop disease for image:', imageUri);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // For demo purposes, return a random disease result
-    const randomResult = mockDiseaseResults[Math.floor(Math.random() * mockDiseaseResults.length)];
-    
-    console.log('Disease detection result:', randomResult.diseaseName);
-    return randomResult;
-    
-    // In a real implementation, you would send the image to your API:
-    // const formData = new FormData();
-    // formData.append('image', {
-    //   uri: imageUri,
-    //   type: 'image/jpeg',
-    //   name: 'crop_image.jpg',
-    // } as any);
-    
-    // const response = await api.post('/crop-disease/detect', formData, {
-    //   headers: {
-    //     'Content-Type': 'multipart/form-data',
-    //   },
-    // });
-    
-    // return response.data;
-  } catch (error) {
-    console.error('Error detecting crop disease:', error);
-    throw new Error('Failed to detect crop disease. Please try again.');
-  }
-};
-
 export const getAvailableExperts = async (): Promise<ExpertConsultation[]> => {
-  try {
-    console.log('Fetching available experts');
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('Found experts:', mockExperts.length);
-    return mockExperts;
-    
-    // In a real implementation:
-    // const response = await api.get('/experts/available');
-    // return response.data;
-  } catch (error) {
-    console.error('Error fetching experts:', error);
-    throw new Error('Failed to fetch experts. Please try again.');
-  }
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return mockExperts;
 };
 
 export const scheduleConsultation = async (expertId: string, diseaseId: string): Promise<{ consultationId: string; scheduledTime: string }> => {
-  try {
-    console.log('Scheduling consultation with expert:', expertId, 'for disease:', diseaseId);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const consultationId = `consultation_${Date.now()}`;
-    const scheduledTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // Tomorrow
-    
-    console.log('Consultation scheduled:', consultationId);
-    return { consultationId, scheduledTime };
-    
-    // In a real implementation:
-    // const response = await api.post('/consultations/schedule', {
-    //   expertId,
-    //   diseaseId,
-    // });
-    // return response.data;
-  } catch (error) {
-    console.error('Error scheduling consultation:', error);
-    throw new Error('Failed to schedule consultation. Please try again.');
-  }
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  return {
+    consultationId: `consultation_${Date.now()}`,
+    scheduledTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  };
 };

@@ -21,6 +21,9 @@ const OTPVerificationScreen: React.FC = () => {
   const phoneNumber = params.phoneNumber as string;
   const verificationId = params.verificationId as string;
   const role = params.role as 'farmer' | 'retailer';
+  // Retailer specific params
+  const gstin = params.gstin as string | undefined;
+  const shopName = params.shopName as string | undefined;
 
   useEffect(() => {
     // Start countdown timer
@@ -71,13 +74,24 @@ const OTPVerificationScreen: React.FC = () => {
     try {
       const user = await verifyOTP(verificationId, otpCode, role);
       
-      const userWithName = {
+      const userWithDetails = {
         ...user,
-        name: role === 'farmer' ? 'Farmer User' : 'Retailer User',
+        name: role === 'farmer' ? 'Farmer User' : (shopName || 'Retailer User'),
+        ...(role === 'retailer' && {
+          gstin: gstin,
+          shopName: shopName,
+          isVerified: false, // Admin will verify the retailer
+        }),
       };
 
-      dispatch(loginSuccess(userWithName));
-      router.replace('/(tabs)/home');
+      dispatch(loginSuccess(userWithDetails));
+      
+      // Navigate based on role
+      if (role === 'retailer') {
+        router.replace('/(retailer)/dashboard');
+      } else {
+        router.replace('/(tabs)/home');
+      }
     } catch (error: any) {
       console.error('OTP verification error:', error);
       dispatch(setError(error.message));

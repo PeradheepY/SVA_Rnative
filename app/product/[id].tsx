@@ -1,16 +1,18 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Image, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../../src/store/slices/productSlice';
 import { addToCart } from '../../src/store/slices/cartSlice';
 import { getProductById } from '../../src/services/productService';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { IconSymbol } from '../../components/IconSymbol';
+import { RootState } from '../../src/store';
 
 const { width } = Dimensions.get('window');
 
@@ -18,8 +20,11 @@ const ProductDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [addedToCart, setAddedToCart] = useState(false);
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const cartItems = useSelector((state: RootState) => state.cart.items);
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const loadProduct = useCallback(async () => {
     try {
@@ -39,8 +44,13 @@ const ProductDetailScreen: React.FC = () => {
   const handleAddToCart = () => {
     if (product) {
       dispatch(addToCart(product));
-      console.log('Added to cart:', product.name);
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 2000);
     }
+  };
+
+  const handleGoToCart = () => {
+    router.push('/cart');
   };
 
   const handleBack = () => {
@@ -78,13 +88,29 @@ const ProductDetailScreen: React.FC = () => {
             </BlurView>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Product Details</Text>
-          <TouchableOpacity style={styles.headerButton}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleGoToCart}>
             <BlurView intensity={20} style={styles.headerButtonBlur}>
-              <IconSymbol name="heart" size={20} color="#fff" />
+              <Ionicons name="cart-outline" size={20} color="#fff" />
+              {cartCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount > 9 ? '9+' : cartCount}</Text>
+                </View>
+              )}
             </BlurView>
           </TouchableOpacity>
         </View>
       </LinearGradient>
+
+      {/* Added to Cart Toast */}
+      {addedToCart && (
+        <View style={styles.toast}>
+          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+          <Text style={styles.toastText}>Added to cart!</Text>
+          <TouchableOpacity onPress={handleGoToCart}>
+            <Text style={styles.toastLink}>View Cart</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView 
         style={styles.scrollView} 
@@ -220,6 +246,52 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF6B6B',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  toast: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginLeft: 8,
+  },
+  toastLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+    textDecorationLine: 'underline',
   },
   headerTitle: {
     fontSize: 18,
