@@ -6,19 +6,21 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { RootState } from '../../src/store';
+import { RootState, AppDispatch } from '../../src/store';
 import { setProducts, setLoading } from '../../src/store/slices/productSlice';
 import { getProducts } from '../../src/services/productService';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import WeatherWidget from '../../src/components/WeatherWidget';
 import CategoryCard from '../../src/components/CategoryCard';
+import { fetchUserFields, selectFieldsWithStatus } from '../../src/store/slices/fieldSlice';
 
 const { width } = Dimensions.get('window');
 
 const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useSelector((state: RootState) => state.auth);
-  const dispatch = useDispatch();
+  const fieldsWithStatus = useSelector(selectFieldsWithStatus);
+  const dispatch = useDispatch<AppDispatch>();
   const { t } = useTranslation();
 
   const loadProducts = useCallback(async () => {
@@ -31,13 +33,25 @@ const HomeScreen: React.FC = () => {
     }
   }, [dispatch]);
 
+  const loadFields = useCallback(async () => {
+    if (user?.uid) {
+      try {
+        await dispatch(fetchUserFields(user.uid));
+      } catch (error) {
+        console.log('Error loading fields:', error);
+      }
+    }
+  }, [dispatch, user?.uid]);
+
   useEffect(() => {
     loadProducts();
-  }, [loadProducts]);
+    loadFields();
+  }, [loadProducts, loadFields]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadProducts();
+    await loadFields();
     setRefreshing(false);
   };
 
@@ -69,12 +83,20 @@ const HomeScreen: React.FC = () => {
     return 'Good Evening';
   };
 
-  // Mock data for fields
-  const myFields = [
-    { id: 1, name: 'Tomatoes', size: '12 Ha', status: 'Good', image: '🍅', needsAttention: false },
-    { id: 2, name: 'Lettuce', size: '18 Ha', status: 'Need Water', image: '🥬', needsAttention: true },
-    { id: 3, name: 'Rice', size: '24 Ha', status: 'Good', image: '🌾', needsAttention: false },
-  ];
+  // Transform fields data for display
+  const myFields = fieldsWithStatus.map((field) => {
+    console.log('Field in home:', field.id, field.name);
+    return {
+      id: field.id,
+      name: field.name,
+      cropType: field.cropType,
+      size: `${field.size} Ha`,
+      status: field.statusInfo.status,
+      image: field.image || '🌾',
+      needsAttention: field.statusInfo.needsAttention,
+      alerts: field.statusInfo.alerts,
+    };
+  });
 
   const tasks = [
     { id: 1, title: 'Watering', location: 'Tomatoes Field', time: '10:10 AM', completed: true },
@@ -155,6 +177,10 @@ const HomeScreen: React.FC = () => {
                 key={field.id}
                 style={styles.fieldCard}
                 activeOpacity={0.8}
+                onPress={() => {
+                  console.log('Navigating to field:', field.id);
+                  router.push({ pathname: '/field/[id]', params: { id: field.id } });
+                }}
               >
                 <BlurView intensity={20} tint="light" style={styles.fieldBlur}>
                   <View style={styles.fieldContent}>
@@ -172,6 +198,7 @@ const HomeScreen: React.FC = () => {
                       <Text style={styles.fieldEmoji}>{field.image}</Text>
                     </View>
                     <Text style={styles.fieldName}>{field.name}</Text>
+                    <Text style={styles.fieldSubtitle}>{field.cropType}</Text>
                     <Text style={styles.fieldSize}>{field.size}</Text>
                   </View>
                 </BlurView>
@@ -271,6 +298,9 @@ const HomeScreen: React.FC = () => {
           </View>
         </View>
       </View>
+      
+      {/* Bottom spacing for tab bar */}
+      <View style={{ height: 100 }} />
     </ScrollView>
   );
 };
@@ -440,6 +470,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 2,
+  },
+  fieldSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   fieldSize: {

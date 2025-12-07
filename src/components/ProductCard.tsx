@@ -24,7 +24,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      <BlurView intensity={15} tint="light" style={styles.cardBlur}>
+      <View style={styles.cardBlur}>
         <View style={styles.imageContainer}>
           <Image source={{ uri: product.image }} style={styles.image} />
           {product.inStock && (
@@ -60,7 +60,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </BlurView>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -82,7 +82,8 @@ const styles = StyleSheet.create({
   cardBlur: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
+    backgroundColor: '#ffffff',
+    flex: 1,
   },
   imageContainer: {
     position: 'relative',

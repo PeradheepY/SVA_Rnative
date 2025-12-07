@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   gradientHeader: {
     paddingTop: 50,

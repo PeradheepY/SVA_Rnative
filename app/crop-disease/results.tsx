@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,14 @@ const ResultsScreen: React.FC = () => {
   const { currentDetection, availableExperts, isLoadingExperts } = useSelector((state: RootState) => state.cropDisease);
 
   const detection = currentDetection;
+
+  // Debug: Log the detection data
+  useEffect(() => {
+    if (detection) {
+      console.log('📊 Results page - Disease:', detection.diseaseName);
+      console.log('📷 Results page - Image URI:', detection.imageUri);
+    }
+  }, [detection]);
 
   const loadExperts = useCallback(async () => {
     try {
@@ -111,6 +119,19 @@ const ResultsScreen: React.FC = () => {
       </View>
 
       <View style={styles.content}>
+        {/* Plant Image */}
+        {detection.imageUri && (
+          <View style={styles.imageContainer}>
+            <Image 
+              source={{ uri: detection.imageUri }} 
+              style={styles.plantImage}
+              resizeMode="cover"
+              onError={(error) => console.error('❌ Image load error:', error.nativeEvent.error)}
+              onLoad={() => console.log('✅ Image loaded successfully')}
+            />
+          </View>
+        )}
+
         {/* Disease Information */}
         <View style={styles.diseaseCard}>
           <View style={styles.diseaseHeader}>
@@ -251,6 +272,9 @@ const ResultsScreen: React.FC = () => {
             </View>
           )}
         </View>
+        
+        {/* Bottom spacing */}
+        <View style={{ height: 100 }} />
       </View>
     </ScrollView>
   );
@@ -288,6 +312,21 @@ const styles = StyleSheet.create({
     ...commonStyles.text,
     textAlign: 'center',
     marginBottom: 20,
+  },
+  imageContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  plantImage: {
+    width: '100%',
+    height: 250,
+    backgroundColor: colors.grey,
   },
   diseaseCard: {
     ...commonStyles.card,

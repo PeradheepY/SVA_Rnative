@@ -6,6 +6,7 @@ interface User {
   name: string;
   phoneNumber: string;
   role: 'farmer' | 'retailer';
+  profileImage?: string;
   // Retailer specific fields
   gstin?: string;
   shopName?: string;
@@ -66,6 +67,11 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.loading = false;
     },
+    updateProfile: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
   },
 });
 
@@ -75,6 +81,7 @@ export const {
   setVerificationId, 
   loginSuccess, 
   logout, 
-  restoreAuth 
+  restoreAuth,
+  updateProfile
 } = authSlice.actions;
 export default authSlice.reducer;

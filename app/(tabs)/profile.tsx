@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { RootState } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
@@ -68,29 +67,38 @@ const ProfileScreen: React.FC = () => {
         scrollEventThrottle={16}
       >
         {/* Profile Card */}
-        <BlurView intensity={15} tint="light" style={styles.profileCard}>
+        <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'W'}</Text>
-            </View>
-            <TouchableOpacity style={styles.editButton}>
+            <TouchableOpacity style={styles.avatarContainer}>
+              {user?.profileImage ? (
+                <Image source={{ uri: user.profileImage }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'W'}</Text>
+              )}
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="camera" size={14} color="#fff" />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editButton} onPress={() => router.push('/profile/edit')}>
               <Ionicons name="pencil-outline" size={20} color={colors.text} />
+              <Text style={styles.editText}>Edit</Text>
             </TouchableOpacity>
           </View>
 
           <Text style={styles.userName}>{user?.name || 'Wahib Khan'}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'wahibkhan5959@gmail.com'}</Text>
           
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.locationText}>New York, United States</Text>
+          <View style={styles.userDetailsRow}>
+            <View style={styles.detailItem}>
+              <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.detailText}>{user?.phoneNumber || '+91 9876543210'}</Text>
+            </View>
           </View>
-        </BlurView>
+        </View>
 
         {/* Info Items */}
         <View style={styles.infoSection}>
           <TouchableOpacity onPress={() => router.push('/orders')}>
-            <BlurView intensity={15} tint="light" style={styles.infoItem}>
+            <View style={styles.infoItem}>
               <View style={styles.infoLeft}>
                 <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(107, 207, 127, 0.1)' }]}>
                   <Ionicons name="receipt-outline" size={20} color={colors.primary} />
@@ -98,11 +106,11 @@ const ProfileScreen: React.FC = () => {
                 <Text style={styles.infoLabel}>My Orders</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-            </BlurView>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.push('/cart')}>
-            <BlurView intensity={15} tint="light" style={styles.infoItem}>
+            <View style={styles.infoItem}>
               <View style={styles.infoLeft}>
                 <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(255, 183, 77, 0.1)' }]}>
                   <Ionicons name="cart-outline" size={20} color="#FFB74D" />
@@ -110,42 +118,39 @@ const ProfileScreen: React.FC = () => {
                 <Text style={styles.infoLabel}>My Cart</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-            </BlurView>
+            </View>
           </TouchableOpacity>
 
-          <BlurView intensity={15} tint="light" style={styles.infoItem}>
-            <View style={styles.infoLeft}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="call-outline" size={20} color={colors.text} />
+          <TouchableOpacity onPress={() => router.push('/address/list')}>
+            <View style={styles.infoItem}>
+              <View style={styles.infoLeft}>
+                <View style={[styles.infoIconContainer, { backgroundColor: 'rgba(33, 150, 243, 0.1)' }]}>
+                  <Ionicons name="location-outline" size={20} color="#2196F3" />
+                </View>
+                <View>
+                  <Text style={styles.infoLabel}>My Addresses</Text>
+                  <Text style={styles.infoSubtext}>Manage delivery addresses</Text>
+                </View>
               </View>
-              <Text style={styles.infoLabel}>Mobile</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-          </BlurView>
+          </TouchableOpacity>
 
-          <BlurView intensity={15} tint="light" style={styles.infoItem}>
-            <View style={styles.infoLeft}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="briefcase-outline" size={20} color={colors.text} />
+          <TouchableOpacity>
+            <View style={styles.infoItem}>
+              <View style={styles.infoLeft}>
+                <View style={styles.infoIconContainer}>
+                  <Ionicons name="settings-outline" size={20} color={colors.text} />
+                </View>
+                <Text style={styles.infoLabel}>Settings</Text>
               </View>
-              <Text style={styles.infoLabel}>Role</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-          </BlurView>
-
-          <BlurView intensity={15} tint="light" style={styles.infoItem}>
-            <View style={styles.infoLeft}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="settings-outline" size={20} color={colors.text} />
-              </View>
-              <Text style={styles.infoLabel}>Settings</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-          </BlurView>
+          </TouchableOpacity>
         </View>
 
         {/* Settings Section */}
-        <BlurView intensity={15} tint="light" style={styles.settingsCard}>
+        <View style={styles.settingsCard}>
           <TouchableOpacity style={styles.settingRow} onPress={handleLanguageChange}>
             <View style={styles.settingLeft}>
               <View style={styles.settingIconContainer}>
@@ -167,10 +172,10 @@ const ProfileScreen: React.FC = () => {
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
           </TouchableOpacity>
-        </BlurView>
+        </View>
 
         {/* Help Center */}
-        <BlurView intensity={15} tint="light" style={styles.helpItem}>
+        <View style={styles.helpItem}>
           <View style={styles.infoLeft}>
             <View style={styles.infoIconContainer}>
               <Ionicons name="information-circle-outline" size={20} color={colors.text} />
@@ -178,7 +183,7 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.infoLabel}>Help Center</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </BlurView>
+        </View>
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -232,6 +237,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
+    borderWidth: 0,
   },
   profileHeader: {
     flexDirection: 'row',
@@ -246,39 +252,66 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8E8E8',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
   avatarText: {
     fontSize: 32,
     fontWeight: '700',
     color: '#666',
   },
-  editButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F5F5F5',
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+  },
+  editText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
   userName: {
     fontSize: 22,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: colors.textSecondary,
     marginBottom: 12,
   },
-  locationRow: {
+  userDetailsRow: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  locationText: {
+  detailText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.text,
+    fontWeight: '500',
   },
   infoSection: {
     marginTop: 20,
@@ -297,6 +330,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    borderWidth: 0,
   },
   infoLeft: {
     flexDirection: 'row',
@@ -316,6 +350,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.text,
   },
+  infoSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   settingsCard: {
     marginTop: 20,
     padding: 16,
@@ -327,6 +366,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    borderWidth: 0,
   },
   settingRow: {
     flexDirection: 'row',
@@ -371,6 +411,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    borderWidth: 0,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -386,6 +427,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    borderWidth: 0,
   },
   logoutText: {
     fontSize: 16,

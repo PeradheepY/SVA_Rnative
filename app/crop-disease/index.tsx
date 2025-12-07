@@ -44,8 +44,9 @@ const CropDiseaseScreen: React.FC = () => {
       });
 
       if (!result.canceled && result.assets[0]) {
-        setSelectedImage(result.assets[0].uri);
-        console.log('Image selected from gallery:', result.assets[0].uri);
+        const imageUri = result.assets[0].uri;
+        console.log('✅ Image selected from gallery:', imageUri);
+        setSelectedImage(imageUri);
       }
     } catch (error) {
       console.error('Error picking image from gallery:', error);
@@ -68,8 +69,9 @@ const CropDiseaseScreen: React.FC = () => {
       });
 
       if (!result.canceled && result.assets[0]) {
-        setSelectedImage(result.assets[0].uri);
-        console.log('Photo taken:', result.assets[0].uri);
+        const imageUri = result.assets[0].uri;
+        console.log('✅ Photo taken:', imageUri);
+        setSelectedImage(imageUri);
       }
     } catch (error) {
       console.error('Error taking photo:', error);
@@ -84,14 +86,19 @@ const CropDiseaseScreen: React.FC = () => {
     }
 
     try {
+      console.log('🔍 Starting analysis for image:', selectedImage);
       dispatch(setDetecting(true));
       const result = await detectCropDisease(selectedImage);
+      console.log('✅ Analysis complete:', result.diseaseName);
+      console.log('📷 Image URL in result:', result.imageUri);
       dispatch(setCurrentDetection(result));
       router.push('/crop-disease/results');
     } catch (error) {
-      console.error('Error analyzing image:', error);
+      console.error('❌ Error analyzing image:', error);
       dispatch(setError('Failed to analyze image. Please try again.'));
       Alert.alert('Analysis Failed', 'Failed to analyze the image. Please try again.');
+    } finally {
+      dispatch(setDetecting(false));
     }
   };
 
@@ -139,7 +146,17 @@ const CropDiseaseScreen: React.FC = () => {
         <View style={styles.mainSection}>
           {selectedImage ? (
             <View style={styles.imagePreviewContainer}>
-              <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+              <Image 
+                source={{ uri: selectedImage }} 
+                style={styles.imagePreview}
+                resizeMode="cover"
+                onError={(error) => {
+                  console.error('❌ Preview image load error:', error.nativeEvent.error);
+                  Alert.alert('Error', 'Failed to load image. Please try selecting again.');
+                  setSelectedImage(null);
+                }}
+                onLoad={() => console.log('✅ Preview image loaded')}
+              />
               <TouchableOpacity 
                 style={styles.changeImageButton}
                 onPress={() => setSelectedImage(null)}

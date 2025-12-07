@@ -291,3 +291,34 @@ export const updateRetailerVerification = async (uid: string, isVerified: boolea
     throw error;
   }
 };
+
+/**
+ * Update user profile
+ */
+export const updateUserProfile = async (
+  uid: string, 
+  updates: { name?: string; phoneNumber?: string; profileImage?: string }
+): Promise<void> => {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, uid);
+    const updateData: any = {
+      updatedAt: Timestamp.now(),
+    };
+
+    if (updates.name !== undefined) {
+      updateData.name = updates.name;
+    }
+    if (updates.phoneNumber !== undefined) {
+      updateData.phoneNumber = updates.phoneNumber;
+    }
+    if (updates.profileImage !== undefined) {
+      updateData.profileImage = updates.profileImage;
+    }
+
+    await updateDoc(userRef, updateData);
+    console.log('User profile updated successfully');
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+};

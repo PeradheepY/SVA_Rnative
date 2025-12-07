@@ -8,6 +8,10 @@ import * as FileSystem from 'expo-file-system';
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
+// Cloudinary configuration
+const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dkbphnjpb';
+const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'sva_agromart';
+
 export interface DiseaseDetectionResult {
   id: string;
   diseaseName: string;
@@ -46,6 +50,48 @@ export interface ExpertConsultation {
   languages: string[];
   profileImage: string;
 }
+
+// Upload image to Cloudinary
+const uploadImageToCloudinary = async (imageUri: string): Promise<string> => {
+  try {
+    console.log('📤 Uploading image to Cloudinary...');
+    const formData = new FormData();
+    
+    // Get file extension
+    const uriParts = imageUri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+    
+    formData.append('file', {
+      uri: imageUri,
+      type: `image/${fileType}`,
+      name: `plant_disease_${Date.now()}.${fileType}`,
+    } as any);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('folder', 'plant_disease');
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('Cloudinary upload error:', data.error);
+      throw new Error(data.error.message);
+    }
+    
+    console.log('✅ Image uploaded to Cloudinary:', data.secure_url);
+    return data.secure_url;
+  } catch (error) {
+    console.error('❌ Error uploading to Cloudinary:', error);
+    // Return local URI as fallback
+    return imageUri;
+  }
+};
 
 // Convert image to base64
 const imageToBase64 = async (imageUri: string): Promise<string> => {
@@ -95,15 +141,19 @@ const parseGeminiResponse = (responseText: string): Partial<DiseaseDetectionResu
 
 export const detectCropDisease = async (imageUri: string): Promise<DiseaseDetectionResult> => {
   try {
-    console.log('Detecting crop disease for image:', imageUri);
+    console.log('🔬 Detecting crop disease for image:', imageUri);
     
     // Check if API key is configured
     if (GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
-      console.log('Gemini API key not configured, using mock data');
+      console.log('⚠️ Gemini API key not configured, using mock data');
       return await detectCropDiseaseMock(imageUri);
     }
     
-    // Convert image to base64
+    // Upload image to Cloudinary first
+    const cloudinaryUrl = await uploadImageToCloudinary(imageUri);
+    console.log('🖼️ Using image URL:', cloudinaryUrl);
+    
+    // Convert image to base64 for Gemini API
     const base64Image = await imageToBase64(imageUri);
     
     // Create prompt for Gemini
@@ -197,7 +247,7 @@ Analyze the plant in the image carefully. If it's healthy, set isHealthy to true
         ],
         severity: 'low',
         affectedCrops: [],
-        imageUri,
+        imageUri: cloudinaryUrl, // Use Cloudinary URL
         isHealthy: true,
       };
     }
@@ -225,13 +275,19 @@ Analyze the plant in the image carefully. If it's healthy, set isHealthy to true
       preventionTips: parsed.preventionTips || treatmentInfo.preventionTips,
       severity: parsed.severity || 'medium',
       affectedCrops: parsed.affectedCrops || ['Various crops'],
-      imageUri,
+      imageUri: cloudinaryUrl, // Use Cloudinary URL
       isHealthy: false,
     };
     
   } catch (error) {
-    console.error('Error detecting crop disease:', error);
-    return await detectCropDiseaseMock(imageUri);
+    console.error('❌ Error detecting crop disease:', error);
+    // Upload image even on error, then return mock
+    const cloudinaryUrl = await uploadImageToCloudinary(imageUri);
+    const mockResult = await detectCropDiseaseMock(imageUri);
+    return {
+      ...mockResult,
+      imageUri: cloudinaryUrl, // Use Cloudinary URL even for mock
+    };
   }
 };
 
