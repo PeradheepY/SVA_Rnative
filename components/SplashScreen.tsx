@@ -116,7 +116,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
             },
           ]}
         >
-          {/* Optional: Add brand text here if needed */}
+          <Text style={styles.brandName}>SVA AgroMart</Text>
+          <Text style={styles.tagline}>Empowering Farmers, Growing Together</Text>
         </Animated.View>
       </LinearGradient>
     </View>
@@ -173,6 +174,22 @@ const styles = StyleSheet.create({
   brandContainer: {
     marginTop: 30,
     alignItems: 'center',
+  },
+  brandName: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#2E7D32',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  tagline: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#4CAF50',
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    lineHeight: 22,
   },
 });
 
