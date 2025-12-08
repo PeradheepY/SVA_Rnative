@@ -12,7 +12,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTH_STORAGE_KEY = '@sva_auth_state';
 const ROLE_STORAGE_KEY = '@sva_user_role';
+const AUTH_TIMESTAMP_KEY = '@sva_auth_timestamp';
 const USERS_COLLECTION = 'users';
+const SESSION_TIMEOUT = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
 export interface AuthUser {
   uid: string;
@@ -96,6 +98,7 @@ export const verifyOTP = async (
   verificationId: string,
   otp: string,
   role: 'farmer' | 'retailer',
+  name: string,
   retailerData?: { gstin?: string; shopName?: string }
 ): Promise<AuthUser> => {
   try {
@@ -112,6 +115,7 @@ export const verifyOTP = async (
         uid: `mock_user_${Date.now()}`,
         phoneNumber: '+919876543210',
         role,
+        name: name,
         ...(role === 'retailer' && retailerData && {
           gstin: retailerData.gstin,
           shopName: retailerData.shopName,
@@ -122,9 +126,10 @@ export const verifyOTP = async (
       // Save user to Firestore
       await saveUserToFirestore(mockUser);
 
-      // Save to AsyncStorage
+      // Save to AsyncStorage with timestamp
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockUser));
       await AsyncStorage.setItem(ROLE_STORAGE_KEY, role);
+      await AsyncStorage.setItem(AUTH_TIMESTAMP_KEY, Date.now().toString());
 
       return mockUser;
     }
@@ -137,6 +142,7 @@ export const verifyOTP = async (
       uid: userCredential.user.uid,
       phoneNumber: userCredential.user.phoneNumber || '',
       role,
+      name: name,
       ...(role === 'retailer' && retailerData && {
         gstin: retailerData.gstin,
         shopName: retailerData.shopName,
@@ -159,14 +165,35 @@ export const verifyOTP = async (
 
 /**
  * Get stored authentication state
+ * Checks session timeout and clears auth if expired
  */
 export const getStoredAuthState = async (): Promise<AuthUser | null> => {
   try {
     const authData = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
     const role = await AsyncStorage.getItem(ROLE_STORAGE_KEY);
+    const timestamp = await AsyncStorage.getItem(AUTH_TIMESTAMP_KEY);
     
-    if (authData && role) {
+    if (authData && role && timestamp) {
+      const loginTime = parseInt(timestamp, 10);
+      const currentTime = Date.now();
+      
+      // Check if session has expired (7 days)
+      if (currentTime - loginTime > SESSION_TIMEOUT) {
+        console.log('Session expired, clearing auth state');
+        await signOutUser();
+        return null;
+      }
+      
       const parsedData = JSON.parse(authData);
+      
+      // Fetch latest user data from Firestore
+      if (parsedData.uid) {
+        const userData = await getUserFromFirestore(parsedData.uid);
+        if (userData) {
+          return userData;
+        }
+      }
+      
       return {
         ...parsedData,
         role: role as 'farmer' | 'retailer',
@@ -178,7 +205,6 @@ export const getStoredAuthState = async (): Promise<AuthUser | null> => {
     return null;
   }
 };
-
 /**
  * Sign out user
  */
@@ -187,6 +213,7 @@ export const signOutUser = async (): Promise<void> => {
     await signOut(auth);
     await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
     await AsyncStorage.removeItem(ROLE_STORAGE_KEY);
+    await AsyncStorage.removeItem(AUTH_TIMESTAMP_KEY);
   } catch (error) {
     console.error('Error signing out:', error);
     throw error;
@@ -239,7 +266,7 @@ export const saveUserToFirestore = async (user: AuthUser): Promise<void> => {
         uid: user.uid,
         phoneNumber: user.phoneNumber,
         role: user.role,
-        name: user.role === 'farmer' ? 'Farmer User' : (user.shopName || 'Retailer User'),
+        name: user.name || (user.role === 'farmer' ? 'Farmer User' : (user.shopName || 'Retailer User')),
         ...(user.role === 'retailer' && {
           gstin: user.gstin || '',
           shopName: user.shopName || '',

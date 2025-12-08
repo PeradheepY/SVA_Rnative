@@ -12,12 +12,13 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Provider, useDispatch } from 'react-redux';
 import { store } from '../src/store';
 import '../src/utils/i18n';
 import { restoreAuth } from '../src/store/slices/authSlice';
 import { getStoredAuthState } from '../src/services/authService';
+import CustomSplashScreen from '../components/SplashScreen';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -30,11 +31,8 @@ function AuthRestorer() {
       try {
         const authUser = await getStoredAuthState();
         if (authUser) {
-          const userWithName = {
-            ...authUser,
-            name: authUser.role === 'farmer' ? 'Farmer User' : 'Retailer User',
-          };
-          dispatch(restoreAuth(userWithName));
+          // Auth user already has name from Firestore or storage
+          dispatch(restoreAuth(authUser));
         }
       } catch (error) {
         console.error('Error restoring auth state:', error);
@@ -51,6 +49,7 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+  const [showSplash, setShowSplash] = useState(true);
 
   const colorScheme = useColorScheme();
 
@@ -62,6 +61,10 @@ export default function RootLayout() {
 
   if (!loaded) {
     return null;
+  }
+
+  if (showSplash) {
+    return <CustomSplashScreen onAnimationEnd={() => setShowSplash(false)} />;
   }
 
   return (

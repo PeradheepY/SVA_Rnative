@@ -18,6 +18,7 @@ const OTPVerificationScreen: React.FC = () => {
   const { t } = useTranslation();
   const params = useLocalSearchParams();
   
+  const name = params.name as string;
   const phoneNumber = params.phoneNumber as string;
   const verificationId = params.verificationId as string;
   const role = params.role as 'farmer' | 'retailer';
@@ -72,11 +73,17 @@ const OTPVerificationScreen: React.FC = () => {
     dispatch(setLoading(true));
 
     try {
-      const user = await verifyOTP(verificationId, otpCode, role);
+      const user = await verifyOTP(
+        verificationId, 
+        otpCode, 
+        role, 
+        name,
+        role === 'retailer' ? { gstin, shopName } : undefined
+      );
       
       const userWithDetails = {
         ...user,
-        name: role === 'farmer' ? 'Farmer User' : (shopName || 'Retailer User'),
+        name: name,
         ...(role === 'retailer' && {
           gstin: gstin,
           shopName: shopName,

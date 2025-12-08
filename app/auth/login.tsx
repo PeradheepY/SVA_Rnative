@@ -17,6 +17,7 @@ const validateGSTIN = (gstin: string): boolean => {
 };
 
 const LoginScreen: React.FC = () => {
+  const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedRole, setSelectedRole] = useState<'farmer' | 'retailer' | null>(null);
   const [gstin, setGstin] = useState('');
@@ -26,6 +27,11 @@ const LoginScreen: React.FC = () => {
   const { t } = useTranslation();
 
   const handleSendOTP = async () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter your name');
+      return;
+    }
+
     if (!phoneNumber || !selectedRole) {
       Alert.alert('Error', 'Please enter phone number and select role');
       return;
@@ -61,10 +67,11 @@ const LoginScreen: React.FC = () => {
       
       dispatch(setVerificationId(verificationId));
       
-      // Navigate to OTP verification screen with retailer data
+      // Navigate to OTP verification screen with user data
       router.push({
         pathname: '/auth/verify-otp',
         params: {
+          name: name.trim(),
           phoneNumber: formattedPhone,
           verificationId,
           role: selectedRole,
@@ -85,7 +92,7 @@ const LoginScreen: React.FC = () => {
   };
 
   const isFormValid = () => {
-    if (!phoneNumber || !selectedRole) return false;
+    if (!name.trim() || !phoneNumber || !selectedRole) return false;
     if (selectedRole === 'retailer' && (!gstin.trim() || !shopName.trim())) return false;
     return true;
   };
@@ -108,6 +115,14 @@ const LoginScreen: React.FC = () => {
           </View>
 
           <View style={styles.form}>
+            <InputField
+              label="Full Name"
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter your full name"
+              autoCapitalize="words"
+            />
+
             <InputField
               label={t('phoneNumber')}
               value={phoneNumber}

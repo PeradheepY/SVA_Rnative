@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -147,11 +148,12 @@ const CropDiseaseScreen: React.FC = () => {
           {selectedImage ? (
             <View style={styles.imagePreviewContainer}>
               <Image 
-                source={{ uri: selectedImage }} 
+                source={selectedImage}
                 style={styles.imagePreview}
-                resizeMode="cover"
+                contentFit="cover"
+                transition={200}
                 onError={(error) => {
-                  console.error('❌ Preview image load error:', error.nativeEvent.error);
+                  console.error('❌ Preview image load error:', error);
                   Alert.alert('Error', 'Failed to load image. Please try selecting again.');
                   setSelectedImage(null);
                 }}
@@ -161,9 +163,9 @@ const CropDiseaseScreen: React.FC = () => {
                 style={styles.changeImageButton}
                 onPress={() => setSelectedImage(null)}
               >
-                <BlurView intensity={80} tint="light" style={[styles.changeImageBlur, { backgroundColor: 'rgba(255, 255, 255, 0.6)' }]}>
+                <View style={styles.changeImageBlur}>
                   <IconSymbol name="xmark.circle.fill" size={28} color={colors.error} />
-                </BlurView>
+                </View>
               </TouchableOpacity>
             </View>
           ) : (
@@ -387,6 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     height: 280,
+    width: '100%',
     backgroundColor: colors.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -397,7 +400,6 @@ const styles = StyleSheet.create({
   imagePreview: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   changeImageButton: {
     position: 'absolute',
@@ -411,6 +413,8 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 20,
   },
   uploadPromptContainer: {
     borderRadius: 20,
