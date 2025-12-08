@@ -37,7 +37,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "versionCode": 3
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
