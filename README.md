@@ -4,6 +4,16 @@
 
 SVA AgroMart is a comprehensive agricultural marketplace mobile application connecting farmers and retailers. Built with React Native, Expo, and Firebase.
 
+## 🎬 App Previews
+
+**Farmer Experience**
+
+![Farmer App Preview](public/farmer.gif)
+
+**Retailer Experience**
+
+![Retailer App Preview](public/retailer.gif)
+
 ## ✨ Features
 
 - 🔐 **Phone Authentication** - Secure login with OTP verification
