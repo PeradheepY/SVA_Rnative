@@ -32,7 +32,7 @@ export interface WeatherForecast {
   date: string;
 }
 
-const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY || '187c6386e543c8a2967c4527f4aa716e';
+const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY;
 const WEATHER_API_URL = 'https://api.openweathermap.org/data/2.5';
 
 /**
