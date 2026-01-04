@@ -8,11 +8,11 @@ SVA AgroMart is a comprehensive agricultural marketplace mobile application conn
 
 **Farmer Experience**
 
-![Farmer App Preview](public/farmer.gif)
+<img src="public/farmer.gif" alt="Farmer App Preview" width="500" />
 
 **Retailer Experience**
 
-![Retailer App Preview](public/retailer.gif)
+<img src="public/retailer.gif" alt="Retailer App Preview" width="500" />
 
 ## ✨ Features
 
